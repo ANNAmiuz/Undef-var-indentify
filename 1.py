@@ -67,6 +67,19 @@ class ASTExplorer:
         for calling in self.calls_within_functions[node.func.id]:
             self.calls_within_functions[enclosing_function].add(calling)
 
+    def _negate_operator(self, op):
+        # Negate the comparison operator by returning its complement
+        if isinstance(op, ast.GtE):
+            return ast.Lt()
+        elif isinstance(op, ast.Gt):
+            return ast.LtE()
+        elif isinstance(op, ast.LtE):
+            return ast.Gt()
+        elif isinstance(op, ast.Lt):
+            return ast.GtE()
+        else:
+            raise ValueError(f"Invalid operator: {type(op).__name__}")
+
 
 class ASTMutator(ast.NodeTransformer):
     def __init__(self, unused_func_defs):
@@ -78,25 +91,28 @@ class ASTMutator(ast.NodeTransformer):
             # If the function is not used, delete it
             return None
         else:
-            return node
+            return self.generic_visit(node)
 
     def visit_BinOp(self, node):
-        if isinstance(node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div)):
-            if isinstance(node.op, ast.Add):
-                node.op = ast.Sub()
-            elif isinstance(node.op, ast.Sub):
-                node.op = ast.Add()
-            elif isinstance(node.op, ast.Mult):
-                node.op = ast.Div()
-            elif isinstance(node.op, ast.Div):
-                node.op = ast.Mult()
+        op_map = {ast.Add: ast.Sub, ast.Sub: ast.Add,
+                  ast.Mult: ast.Div, ast.Div: ast.Mult}
+        if isinstance(node.op, (ast.Add, ast.Mult)):
+            node.op = op_map[type(node.op)]()
+            node.left, node.right = self.visit(
+                node.left), self.visit(node.right)
+        else:
+            node = self.generic_visit(node)
         return node
 
     def visit_Compare(self, node):
-        # Negate each comparison operator in the list except Eq and NotEq
-        for i, op in enumerate(node.ops):
-            if isinstance(op, (ast.Gt, ast.GtE, ast.Lt, ast.LtE)):
-                node.ops[i] = self._negate_operator(op)
+        op_map = {ast.Lt: ast.GtE, ast.LtE: ast.Gt,
+                  ast.Gt: ast.LtE, ast.GtE: ast.Lt}
+        if isinstance(node.ops[0], (ast.GtE, ast.Lt)):
+            node.ops = [op_map[type(node.ops[0])]]
+            node.left, node.right = self.visit(
+                node.left), self.visit(node.right)
+        else:
+            node = self.generic_visit(node)
         return node
 
     def _negate_operator(self, op):
@@ -123,12 +139,12 @@ input_str = "\n".join(input_str.split("\\n"))
 parse_tree = ast.parse(input_str)
 
 # Dump the parse tree
-# print(ast.dump(parse_tree))
+print(ast.dump(parse_tree))
 # print(parse_tree.body)
 myExplorer = ASTExplorer()
 myExplorer.dfs_ast(parse_tree)
 myExplorer.get_unused_function_defs()
-myExplorer.print_function_sets()
+# myExplorer.print_function_sets()
 
 # Negate the binary and comparison operators
 mymutator = ASTMutator(myExplorer.unused_function_defs)
@@ -137,8 +153,9 @@ mutated_tree = mymutator.visit(parse_tree)
 # Add a print statement for each global variable found
 for var in myExplorer.global_vars:
     print_node = ast.Expr(value=ast.Call(func=ast.Name(id="print", ctx=ast.Load()),
-                                      args=[ast.Name(id=var, ctx=ast.Load())],
-                                      keywords=[]))
+                                         args=[
+                                             ast.Name(id=var, ctx=ast.Load())],
+                                         keywords=[]))
     mutated_tree.body.append(print_node)
 
 # Dump the negated parse tree
