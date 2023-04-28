@@ -8,6 +8,7 @@ class ASTExplorer:
         self.calls_within_functions = {}  # function name : {nested calling node under it}
         self.global_vars = []
         self.unused_function_defs = set()
+        self.func_def_nodes = set()
 
     def dfs_ast(self, node, within_function=False, enclosing_function=None):
         if isinstance(node, ast.FunctionDef):
@@ -15,6 +16,7 @@ class ASTExplorer:
             enclosing_function = node.name
             self.function_defs[node.name] = node
             self.calls_within_functions[node.name] = set()
+            self.func_def_nodes.add(node)
 
         if isinstance(node, ast.Call):
             if within_function:
@@ -34,9 +36,9 @@ class ASTExplorer:
             self.dfs_ast(child, within_function, enclosing_function)
 
     def get_unused_function_defs(self):
-        for func_def in self.function_defs.values():
-            if not any(func_def_call == func_def for func_def_call in self.function_calls.values()):
-                self.unused_function_defs.add(func_def)
+        for func_def_node in self.func_def_nodes:
+            if not any(func_def_call == func_def_node for func_def_call in self.function_calls.values()):
+                self.unused_function_defs.add(func_def_node)
 
     def print_function_sets(self):
         print("Function definitions:")
@@ -66,19 +68,6 @@ class ASTExplorer:
         self.calls_within_functions[enclosing_function].add(node)
         for calling in self.calls_within_functions[node.func.id]:
             self.calls_within_functions[enclosing_function].add(calling)
-
-    def _negate_operator(self, op):
-        # Negate the comparison operator by returning its complement
-        if isinstance(op, ast.GtE):
-            return ast.Lt()
-        elif isinstance(op, ast.Gt):
-            return ast.LtE()
-        elif isinstance(op, ast.LtE):
-            return ast.Gt()
-        elif isinstance(op, ast.Lt):
-            return ast.GtE()
-        else:
-            raise ValueError(f"Invalid operator: {type(op).__name__}")
 
 
 class ASTMutator(ast.NodeTransformer):
@@ -115,19 +104,6 @@ class ASTMutator(ast.NodeTransformer):
             node = self.generic_visit(node)
         return node
 
-    def _negate_operator(self, op):
-        # Negate the comparison operator by returning its complement
-        if isinstance(op, ast.GtE):
-            return ast.Lt()
-        elif isinstance(op, ast.Gt):
-            return ast.LtE()
-        elif isinstance(op, ast.LtE):
-            return ast.Gt()
-        elif isinstance(op, ast.Lt):
-            return ast.GtE()
-        else:
-            raise ValueError(f"Invalid operator: {type(op).__name__}")
-
 
 # Take a string input from the user
 input_str = input()
@@ -139,7 +115,7 @@ input_str = "\n".join(input_str.split("\\n"))
 parse_tree = ast.parse(input_str)
 
 # Dump the parse tree
-print(ast.dump(parse_tree))
+# print(ast.dump(parse_tree))
 # print(parse_tree.body)
 myExplorer = ASTExplorer()
 myExplorer.dfs_ast(parse_tree)
