@@ -1,0 +1,5 @@
+x = 1\n
+x = y + 2\n
+def func1(y, z=6):\n
+    z = y*(5-2)\n
+func1(y=x, z=y)\n

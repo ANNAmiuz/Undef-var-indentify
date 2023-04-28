@@ -1,6 +1,11 @@
 import ast
 import sys
 
+def generic_visit(self, node):
+        # print(type(node).__name__)
+        if self.root==None:
+            self.root=node
+        ast.NodeVisitor.generic_visit(self, node)
 
 # Define a function for the mutation strategies
 def mutate(node):

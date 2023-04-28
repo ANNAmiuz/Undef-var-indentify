@@ -1,0 +1,1 @@
+def func1(y, x=5):\n    x = 0\n    y = y - 2\n\nm = 1 >= 0\nx = 6 / (6 - m)\n\ndef foo1():\n    y = 1 < 1\n\nfunc1(y=m, x=x)\n

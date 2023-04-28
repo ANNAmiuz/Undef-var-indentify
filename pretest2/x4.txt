@@ -1,0 +1,8 @@
+y = 1\n
+def g():\n
+    x = x + y\n
+g()\n
+x = 2 + y\n
+def g(x=5):\n
+    y = x + 1\n
+g()\n

@@ -1,0 +1,6 @@
+x = 1\n
+x = y + 2\n
+a = 5.5\n
+b = x + a + b\n
+b = a\n
+b = a + 2\n

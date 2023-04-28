@@ -1,0 +1,10 @@
+x = 2\n
+x = y + 2\n
+def foo(x):\n
+    x = x + 1\n
+\n
+def func(z, x, y=6):\n
+    x = y + z\n
+    foo(x)\n
+\n
+func(x, 4, y=5)\n
