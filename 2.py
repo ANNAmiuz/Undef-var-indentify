@@ -4,7 +4,7 @@ import ast
 class ASTExplorer:
     def __init__(self):
         # task 2
-        self.debug = True
+        self.debug = False
         self.func_def_dict = {}  # func_name : def_node
         self.ns_stk = []  # each namespace defined_var set
         self.undefined_count = 0
@@ -41,18 +41,25 @@ class ASTExplorer:
                             # pass by default
                             if isinstance(node.args.defaults[i-(argc-len(node.args.defaults))], ast.Constant)\
                                     or (isinstance(node.args.defaults[i-(argc-len(node.args.defaults))], ast.Name) and node.args.defaults[i-(argc-len(node.args.defaults))].id in self.ns_stk[-1]):
-                                self.ns_stk[-1].add(child.args.args[i].arg)
+                                self.ns_stk[-1].add(node.args.args[i].arg)
+                for var in self.ns_stk[0]:
+                    # add global defined vars into current function namesapce
+                    if not any(arg.arg == var for arg in node.args.args):
+                        self.ns_stk[-1].add(var)
+                        
 
         for child in node.body:
             if isinstance(child, ast.FunctionDef):
                 self.func_def_dict[child.name] = child
             elif isinstance(child, ast.Assign):
                 right_undefined_count = self.dfs_ast_normal(child.value)
+                if self.debug: print(f"iterate right: add {right_undefined_count} undefine count")
                 self.undefined_count += right_undefined_count
                 for left in child.targets:
                     self.dfs_ast_normal(left, (right_undefined_count != 0))
             else:
                 undefined_count = self.dfs_ast_normal(child)
+                if self.debug: print(f"iterate right: add {undefined_count} undefine count")
                 self.undefined_count += undefined_count
 
     # traversal into normal statements
@@ -114,12 +121,13 @@ input_str = "\n".join(input_str.split("\\n"))
 parse_tree = ast.parse(input_str)
 
 # Dump the parse tree
-print(ast.dump(parse_tree))
+# print(ast.dump(parse_tree))
 # print(parse_tree.body)
 
 
 myExplorer = ASTExplorer()
 myExplorer.ns_stk.append(set())
+# myExplorer.debug = True
 myExplorer.dfs_ast_ns(parse_tree)
 myExplorer.ns_stk.pop()
 
