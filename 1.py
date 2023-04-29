@@ -66,8 +66,9 @@ class ASTExplorer:
 
     def _add_nested_calling(self, enclosing_function, node):
         self.calls_within_functions[enclosing_function].add(node)
-        for calling in self.calls_within_functions[node.func.id]:
-            self.calls_within_functions[enclosing_function].add(calling)
+        if node.func.id in self.calls_within_functions.keys():
+            for calling in self.calls_within_functions[node.func.id]:
+                self.calls_within_functions[enclosing_function].add(calling)
 
 
 class ASTMutator(ast.NodeTransformer):
@@ -82,27 +83,30 @@ class ASTMutator(ast.NodeTransformer):
         else:
             return self.generic_visit(node)
 
-    def visit_BinOp(self, node):
-        op_map = {ast.Add: ast.Sub, ast.Sub: ast.Add,
-                  ast.Mult: ast.Div, ast.Div: ast.Mult}
-        if isinstance(node.op, (ast.Add, ast.Mult)):
-            node.op = op_map[type(node.op)]()
-            node.left, node.right = self.visit(
-                node.left), self.visit(node.right)
-        else:
-            node = self.generic_visit(node)
-        return node
+    def visit_Add(self, node):
+        return ast.Sub()
+    
+    def visit_Sub(self, node):
+        return ast.Add()
+    
+    def visit_Mult(self, node):
+        return ast.Div()
+    
+    def visit_Div(self, node):
+        return ast.Mult()
 
-    def visit_Compare(self, node):
-        op_map = {ast.Lt: ast.GtE, ast.LtE: ast.Gt,
-                  ast.Gt: ast.LtE, ast.GtE: ast.Lt}
-        if isinstance(node.ops[0], (ast.GtE, ast.Lt)):
-            node.ops = [op_map[type(node.ops[0])]]
-            node.left, node.right = self.visit(
-                node.left), self.visit(node.right)
-        else:
-            node = self.generic_visit(node)
-        return node
+    def visit_GtE(self, node):
+        return ast.Lt()
+    
+    def visit_Gt(self, node):
+        return ast.LtE()
+    
+    def visit_Lt(self, node):
+        return ast.GtE()
+    
+    def visit_LtE(self, node):
+        return ast.Gt()
+
 
 
 # Take a string input from the user
