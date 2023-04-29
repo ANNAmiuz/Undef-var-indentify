@@ -1,8 +1,1 @@
-y = 1\n
-def g():\n
-    x = x + y\n
-g()\n
-x = 2 + y\n
-def g(x=5):\n
-    y = x + 1\n
-g()\n
+y = 1\ndef g():\n    x = x + y\ng()\nx = 2 + y\ndef g(x=5):\n    y = x + 1\ng()
