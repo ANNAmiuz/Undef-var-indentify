@@ -1,105 +1,107 @@
 import ast
 
 
-class Scope:
-    def __init__(self, scope_node):
-        self.__scope_node = scope_node
-
-
 class ASTExplorer:
     def __init__(self):
-        self.defined_set = set()  # var name : dependent set()
+        # task 2
+        self.debug = True
+        self.func_def_dict = {}  # func_name : def_node
+        self.ns_stk = []  # each namespace defined_var set
         self.undefined_count = 0
-        self.function_defs = {}  # name : node
-        self.function_calls = {}  # calling_node : def_node
-        self.calls_within_functions = {}  # function name : {nested calling node under it}
-        self.global_vars = []
-        self.unused_function_defs = set()
-        self.func_def_nodes = set()
-        self.ns_list = []  # namespace
 
-    def dfs_ast(self, node, within_function=False, enclosing_function=None):
+    # traversal into a separate namespace: {var set} {func set}
+    # (1) global namespace
+    # (2) call from a statement
+
+    def dfs_ast_ns(self, node, invoking=False, invoking_node=None, args=[], kws={}):
         if isinstance(node, ast.FunctionDef):
-            within_function = True
-            enclosing_function = node.name
-            self.function_defs[node.name] = node
-            self.calls_within_functions[node.name] = set()
-            self.func_def_nodes.add(node)
-
-        if isinstance(node, ast.Call):
-            if within_function:
-                self.calls_within_functions[enclosing_function].add(node)
-                self._add_nested_calling(enclosing_function, node)
+            if not invoking:
+                # firstly meet func_def: update def node
+                self.func_def_dict[node.name] = node
+                return
             else:
-                self.function_calls[node] = self.function_defs[node.func.id]
-                for calling_node in self.calls_within_functions[node.func.id]:
-                    self.function_calls[calling_node] = self.function_defs[calling_node.func.id]
-
-        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
-            # Check if the name is not defined within a function
-            if not within_function:
-                self.global_vars.append(node.id)
-
-        for child in ast.iter_child_nodes(node):
-            self.dfs_ast(child, within_function, enclosing_function)
-
-    def get_unused_function_defs(self):
-        for func_def_node in self.func_def_nodes:
-            if not any(func_def_call == func_def_node for func_def_call in self.function_calls.values()):
-                self.unused_function_defs.add(func_def_node)
-
-    # traversal through ast tree considering function namespace: {var set} {func set}
-    def dfs_ast_ns(self, node, args=[], kws={}, ns_index=0, ns_root=None):
-        self.ns_list[ns_index] = [set(), set()]
-        undefined_vars = set()
-        
-        for child in ast.iter_child_nodes(node):
-            if isinstance(child, ast.FunctionDef):
-                if child in self.unused_function_defs:
-                    continue
-                argc = len(child.args.args)
+                # in invoking routine: update namespace define set and undefine count
+                argc = len(node.args.args)
                 for i in range(argc):
                     if i < len(args):
                         # pass by arg
                         if args[i]:
-                            self.ns_list[ns_index][0].add(child.args.args[i].arg)
-                        else:
-                            undefined_vars.add(child.args.args[i].arg)
-                    elif i >= len(args) and i < argc - len(child.args.defaults):
-                        # pass by kw
-                        if kws[child.args.args[i].arg]:
-                            self.ns_list[ns_index][0].append(child.args.args[i].arg)
-                        else:
-                            undefined_vars.add(child.args.args[i].arg)
+                            self.ns_stk[-1].add(node.args.args[i].arg)
+                    elif i >= len(args) and i < argc - len(node.args.defaults):
+                        # pass by kw or undefine
+                        if kws[node.args.args[i].arg]:
+                            self.ns_stk[-1].add(node.args.args[i].arg)
                     else:
                         # pass by kw or default
-                        if child.args.args[i].arg in kws.keys():
+                        if node.args.args[i].arg in kws.keys():
                             # pass by kw
-                            if kws[child.args.args[i].arg]:
-                                self.ns_list[ns_index][0].append(child.args.args[i].arg)
-                            else:
-                                undefined_vars.add(child.args.args[i].arg)
+                            if kws[node.args.args[i].arg]:
+                                self.ns_stk[-1].add(node.args.args[i].arg)
                         else:
                             # pass by default
-                            self.ns_list[ns_index][0].append(child.args.args[i].arg)
+                            if isinstance(node.args.defaults[i-(argc-len(node.args.defaults))], ast.Constant)\
+                                    or (isinstance(node.args.defaults[i-(argc-len(node.args.defaults))], ast.Name) and node.args.defaults[i-(argc-len(node.args.defaults))].id in self.ns_stk[-1]):
+                                self.ns_stk[-1].add(child.args.args[i].arg)
 
+        for child in node.body:
+            if isinstance(child, ast.FunctionDef):
+                self.func_def_dict[child.name] = child
             elif isinstance(child, ast.Assign):
-                if self.get_nested_undefined_count(child) > 0:
-                    self.undefined_count += 1
-                    self.defined_set.discard(child)
-                    break
-                else:
-                    self.defined_set.add(child)
+                right_undefined_count = self.dfs_ast_normal(child.value)
+                self.undefined_count += right_undefined_count
+                for left in child.targets:
+                    self.dfs_ast_normal(left, (right_undefined_count != 0))
+            else:
+                undefined_count = self.dfs_ast_normal(child)
+                self.undefined_count += undefined_count
 
-    def get_nested_undefined_count(self, node):
+    # traversal into normal statements
+    # NOT invoked by Call Node
+    def dfs_ast_normal(self, node, undefined_left=False):
         undefined_count = 0
-        # 这里也没想好怎么写
-        return undefined_count
+        node_stk = list()
+        node_stk.append(node)
 
-    def _add_nested_calling(self, enclosing_function, node):
-        self.calls_within_functions[enclosing_function].add(node)
-        for calling in self.calls_within_functions[node.func.id]:
-            self.calls_within_functions[enclosing_function].add(calling)
+        while node_stk:
+            cur_node = node_stk.pop()
+
+            if isinstance(cur_node, ast.Call):
+                args = list()
+                kws = dict()
+                for arg in cur_node.args:
+                    args.append(self.dfs_ast_normal(arg) == 0)
+
+                for keyword in cur_node.keywords:
+                    kws[keyword.arg] = (
+                        self.dfs_ast_normal(keyword.value) == 0)
+                self.ns_stk.append(set())
+
+                # traversal in target function definition
+                self.dfs_ast_ns(
+                    self.func_def_dict[cur_node.func.id], True, node, args, kws)
+
+                self.ns_stk.pop(-1)
+                continue
+
+            if isinstance(cur_node, ast.Name):
+                if isinstance(cur_node.ctx, ast.Store):
+                    # left
+                    if not undefined_left:
+                        self.ns_stk[-1].add(cur_node.id)
+                    else:
+                        self.ns_stk[-1].discard(cur_node.id)
+                elif isinstance(cur_node.ctx, ast.Load):
+                    # right
+                    if not cur_node.id in self.ns_stk[-1]:
+                        if self.debug:
+                            print(
+                                f'line {cur_node.lineno}: undefined var {cur_node.id}')
+                        undefined_count += 1
+
+            for child in ast.iter_child_nodes(cur_node):
+                node_stk.append(child)
+
+        return undefined_count
 
 
 # Take a string input from the user
@@ -117,4 +119,8 @@ print(ast.dump(parse_tree))
 
 
 myExplorer = ASTExplorer()
-myExplorer.dfs_ast(parse_tree)
+myExplorer.ns_stk.append(set())
+myExplorer.dfs_ast_ns(parse_tree)
+myExplorer.ns_stk.pop()
+
+print(myExplorer.undefined_count)
