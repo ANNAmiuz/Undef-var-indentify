@@ -1,0 +1,1 @@
+a = 1\nb = 2\ndef x(a, t=a):\n    k = t\n\ndef y(t=c):\n    k=t\n\ndef z(t=a):\n    k=1\n\ndef z2(t=c):\n    k=1\n\nx(z)\ny()\nz()\nz2()\ny(1)
