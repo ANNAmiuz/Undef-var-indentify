@@ -29,7 +29,7 @@ for i in {1..10}; do
 done
 
 echo "task 2"
-for i in {1..7}; do
+for i in {1..11}; do
   # Run the Python program under Proj1 with redirect input
   /usr/bin/python3 "$proj1_path/2.py" < "$input2_path/x$i.txt" > "$output2_path/proj1_output_$i.txt"
 

@@ -1,0 +1,1 @@
+x = 1\nx = y + 2\ndef foo(x):\n    x = x + 1\ndef func(z, x, y=6):\n    x = y + z\n    foo(x)\nfunc(x, 5, y = 5)

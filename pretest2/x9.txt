@@ -1,0 +1,1 @@
+x = 1\ndef foo(y):\n    x = 6\nfoo(y)
