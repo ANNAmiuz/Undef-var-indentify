@@ -1,1 +1,1 @@
-def func1(y, x=5):\n    x = 0\n    y = y - 2\n\ndef foo1():\n    y = 1 < 1\n    func1(y, x=4)\n\nfoo1()\n
+def func1(y, x=5):\n    x = 0\n    y = y - 2\n\ndef foo1():\n    y = 1 < 1\n    func1(y, x=4)\n\nfoo1()

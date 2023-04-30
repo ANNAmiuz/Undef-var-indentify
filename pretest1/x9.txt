@@ -1,0 +1,1 @@
+def level1():\n    def level2_unused():\n        def level3_used():\n            i = 1+1\n        def level3_unused():\n            i = 2<=3\n        level3_used()\n    def level2_used():\n        def level3_used():\n            i = 1>=4\n        def level3_unused():\n            i = 2*4\n        level3_used()\n    level2_used()\nlevel1()
