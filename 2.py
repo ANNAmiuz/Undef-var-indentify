@@ -22,15 +22,20 @@ class ASTExplorer:
             else:
                 # in invoking routine: update namespace define set and undefine count
                 argc = len(node.args.args)
+                undefined_vars = set()
                 for i in range(argc):
                     if i < len(args):
                         # pass by arg
                         if args[i]:
                             self.ns_stk[-1].add(node.args.args[i].arg)
+                        else:
+                            undefined_vars.add(node.args.args[i].arg)
                     elif i >= len(args) and i < argc - len(node.args.defaults):
                         # pass by kw or undefine
                         if kws[node.args.args[i].arg]:
                             self.ns_stk[-1].add(node.args.args[i].arg)
+                        else:
+                            undefined_vars.add(node.args.args[i].arg)
                     else:
                         # pass by kw or default
                         if node.args.args[i].arg in kws.keys():
@@ -39,27 +44,35 @@ class ASTExplorer:
                                 self.ns_stk[-1].add(node.args.args[i].arg)
                         else:
                             # pass by default
-                            if isinstance(node.args.defaults[i-(argc-len(node.args.defaults))], ast.Constant)\
-                                    or (isinstance(node.args.defaults[i-(argc-len(node.args.defaults))], ast.Name) and node.args.defaults[i-(argc-len(node.args.defaults))].id in self.ns_stk[-1]):
+                            if isinstance(node.args.defaults[i-(argc-len(node.args.defaults))], ast.Constant):
                                 self.ns_stk[-1].add(node.args.args[i].arg)
+                            elif isinstance(node.args.defaults[i-(argc-len(node.args.defaults))], ast.Name):
+                                if node.args.defaults[i-(argc-len(node.args.defaults))].id in self.ns_stk[-1] \
+                                        or (node.args.defaults[i-(argc-len(node.args.defaults))].id in self.ns_stk[0] and not node.args.defaults[i-(argc-len(node.args.defaults))].id in undefined_vars):
+                                    self.ns_stk[-1].add(node.args.args[i].arg)
+                            # if self.dfs_ast_normal(node.args.defaults[i-(argc-len(node.args.defaults))]) == 0:
+                            #     self.ns_stk[-1].add(node.args.args[i].arg)
                 for var in self.ns_stk[0]:
                     # add global defined vars into current function namesapce
                     if not any(arg.arg == var for arg in node.args.args):
                         self.ns_stk[-1].add(var)
-                        
 
         for child in node.body:
             if isinstance(child, ast.FunctionDef):
                 self.func_def_dict[child.name] = child
             elif isinstance(child, ast.Assign):
                 right_undefined_count = self.dfs_ast_normal(child.value)
-                if self.debug: print(f"iterate right: add {right_undefined_count} undefine count")
+                if self.debug:
+                    print(
+                        f"iterate right: add {right_undefined_count} undefine count")
                 self.undefined_count += right_undefined_count
                 for left in child.targets:
                     self.dfs_ast_normal(left, (right_undefined_count != 0))
             else:
                 undefined_count = self.dfs_ast_normal(child)
-                if self.debug: print(f"iterate right: add {undefined_count} undefine count")
+                if self.debug:
+                    print(
+                        f"iterate right: add {undefined_count} undefine count")
                 self.undefined_count += undefined_count
 
     # traversal into normal statements
