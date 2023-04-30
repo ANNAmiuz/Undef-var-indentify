@@ -6,7 +6,7 @@ class ASTExplorer:
         self.function_defs = {}  # name : node
         self.function_calls = {}  # calling_node : def_node
         self.calls_within_functions = {}  # function name : {nested calling node under it}
-        self.global_vars = []
+        self.global_vars = set()
         self.unused_function_defs = set()
         self.func_def_nodes = set()
 
@@ -30,7 +30,7 @@ class ASTExplorer:
         if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
             # Check if the name is not defined within a function
             if not within_function:
-                self.global_vars.append(node.id)
+                self.global_vars.add(node.id)
 
         for child in ast.iter_child_nodes(node):
             self.dfs_ast(child, within_function, enclosing_function)
