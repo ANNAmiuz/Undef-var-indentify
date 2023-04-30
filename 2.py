@@ -6,6 +6,7 @@ class ASTExplorer:
         # task 2
         self.debug = False
         self.func_def_dict = {}  # func_name : def_node
+        self.func_defaultdef_dict = {} # func_name : defaults_define_dict
         self.ns_stk = []  # each namespace defined_var set
         self.undefined_count = 0
 
@@ -18,6 +19,12 @@ class ASTExplorer:
             if not invoking:
                 # firstly meet func_def: update def node
                 self.func_def_dict[node.name] = node
+                self.func_defaultdef_dict[node.name] = dict()
+                for i in range(len(node.args.defaults)):
+                    if self.dfs_ast_normal(node.args.defaults[i]) == 0:
+                        self.func_defaultdef_dict[node.name][i] = True
+                    else:
+                        self.func_defaultdef_dict[node.name][i] = False
                 return
             else:
                 # in invoking routine: update namespace define set and undefine count
@@ -44,14 +51,16 @@ class ASTExplorer:
                                 self.ns_stk[-1].add(node.args.args[i].arg)
                         else:
                             # pass by default
-                            if isinstance(node.args.defaults[i-(argc-len(node.args.defaults))], ast.Constant):
-                                self.ns_stk[-1].add(node.args.args[i].arg)
-                            elif isinstance(node.args.defaults[i-(argc-len(node.args.defaults))], ast.Name):
-                                if node.args.defaults[i-(argc-len(node.args.defaults))].id in self.ns_stk[-1] \
-                                        or (node.args.defaults[i-(argc-len(node.args.defaults))].id in self.ns_stk[0] and not node.args.defaults[i-(argc-len(node.args.defaults))].id in undefined_vars):
-                                    self.ns_stk[-1].add(node.args.args[i].arg)
+                            # if isinstance(node.args.defaults[i-(argc-len(node.args.defaults))], ast.Constant):
+                            #     self.ns_stk[-1].add(node.args.args[i].arg)
+                            # elif isinstance(node.args.defaults[i-(argc-len(node.args.defaults))], ast.Name):
+                            #     if node.args.defaults[i-(argc-len(node.args.defaults))].id in self.ns_stk[-1] \
+                            #             or (node.args.defaults[i-(argc-len(node.args.defaults))].id in self.ns_stk[0] and not node.args.defaults[i-(argc-len(node.args.defaults))].id in undefined_vars):
+                            #         self.ns_stk[-1].add(node.args.args[i].arg)
                             # if self.dfs_ast_normal(node.args.defaults[i-(argc-len(node.args.defaults))]) == 0:
                             #     self.ns_stk[-1].add(node.args.args[i].arg)
+                            if self.func_defaultdef_dict[node.name][i-(argc-len(node.args.defaults))]:
+                                self.ns_stk[-1].add(node.args.args[i].arg)
                 for var in self.ns_stk[0]:
                     # add global defined vars into current function namesapce
                     if not any(arg.arg == var for arg in node.args.args):
@@ -60,6 +69,12 @@ class ASTExplorer:
         for child in node.body:
             if isinstance(child, ast.FunctionDef):
                 self.func_def_dict[child.name] = child
+                self.func_defaultdef_dict[child.name] = dict()
+                for i in range(len(child.args.defaults)):
+                    if self.dfs_ast_normal(child.args.defaults[i]) == 0:
+                        self.func_defaultdef_dict[child.name][i] = True
+                    else:
+                        self.func_defaultdef_dict[child.name][i] = False
             elif isinstance(child, ast.Assign):
                 right_undefined_count = self.dfs_ast_normal(child.value)
                 if self.debug:
